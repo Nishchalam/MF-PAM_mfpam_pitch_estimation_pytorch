@@ -1,0 +1,34 @@
+{
+ "epoch": 520,
+ "which": "last",
+ "checkpoint_epoch": 520,
+ "voicing_threshold": 0.5,
+ "pitch_tolerance_cents": 50,
+ "reference_dio": {
+  "paper_RPA": 0.9431136106108033,
+  "rmvpe_RPA": 0.8096405500938173,
+  "paper_RCA": 0.9465202287549088,
+  "rmvpe_RCA": 0.8099495228965069,
+  "paper_VRR": 0.811329028774119,
+  "rmvpe_VRR": 0.811329028774119,
+  "paper_VFA": 0.0018557260470318882,
+  "rmvpe_VFA": 0.0018557260470318882,
+  "paper_OA": 0.9541006856945692,
+  "rmvpe_OA": 0.9541006856945692,
+  "pooled_RPA_50c": 0.9447682553774596,
+  "n_files": 944
+ },
+ "reference_rapt": {
+  "paper_RPA": 0.8382197176216766,
+  "rmvpe_RPA": 0.792205651255264,
+  "paper_RCA": 0.8694927643106585,
+  "rmvpe_RCA": 0.8112015177282019,
+  "paper_VRR": 0.8793314117923658,
+  "rmvpe_VRR": 0.8793314117923658,
+  "paper_VFA": 0.017794212243887483,
+  "rmvpe_VFA": 0.017794212243887483,
+  "paper_OA": 0.9436249500912889,
+  "rmvpe_OA": 0.9436249500912889,
+  "n_files": 944
+ }
+}
