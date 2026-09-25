@@ -109,3 +109,6 @@ Run 1 (stopped at epoch 107, archived in logs/archive/) is superseded: it lacked
 - Checkpoint selection unchanged: best `val_RPA_50c` (pooled, strict, DIO reference, validation speakers).
 ### D16 — test-set monitoring during training (user-requested deviation from acceptance criterion T-3)
 Every 20 epochs the best-by-validation checkpoint and the current (last) checkpoint are evaluated on the TEST speakers (clean audio), written to `test_monitor.csv` + `monitor/*.json`, and committed/pushed automatically (also a 10-minute timer commit of the logs). These numbers are **monitoring only**: they are not used for checkpoint selection, early stopping or any hyperparameter choice; training config is frozen. The final reported test result remains a single evaluation of the best-validation checkpoint after training. Because test curves are visible during training, the final test number should be described as "test-monitored, validation-selected".
+
+### D17 — early stop (2026-09-25)
+Run stopped manually after epoch 577 of 3100 on the basis of the validation curve (gain <0.1 point per 100 epochs); GPUs were also shared with unrelated jobs (epochs 5-8x slower). Best-validation checkpoint (epoch 549) used for the single final test evaluation.

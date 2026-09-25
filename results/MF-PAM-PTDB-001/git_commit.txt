@@ -1,0 +1,7 @@
+commit: 17de56be7e73bd7a37f761d6cb27d2ef1ff96655
+branch: ptdb-reproduction
+upstream_base: 9303df5 (official MF-PAM)
+dirty_files:
+
+diff_model_files_vs_upstream:
+(none)
