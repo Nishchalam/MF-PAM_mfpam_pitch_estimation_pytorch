@@ -1,0 +1,60 @@
+# MF-PAM-PTDB-001 — every experiment-specific value lives here (see specs/03_experiment.md)
+experiment:
+  name: MF-PAM-PTDB-001
+  seed: 42                       # Q5: user-specified
+dataset:
+  root: /home/batch_2024/ee24s004/KT/RMVPE-RRCGD-spot-computation/dataset/PTDB_data_10ms_hop
+  train_dir: train
+  validation_dir: valid
+  test_dir: test
+  cache_root: /home/batch_2024/ee24s004/KT/MF-PAM_data     # 16 kHz audio + DIO label cache (outside git)
+  native_sample_rate: 48000
+  sample_rate: 16000
+  resampler: {name: soxr, quality: VHQ}
+  noisy_snr_db: [20, 10, 5, 0]   # evaluation-only secondary conditions
+  expected_speakers:             # authoritative split, asserted by scripts/verify_ptdb.py
+    train: [F01, F02, F03, F04, F05, F06, M01, M02, M03, M04, M05, M06]
+    validation: [F07, F08, M07, M08]
+    test: [F09, F10, M09, M10]
+labels:
+  reference: dio                 # Q1: official pyworld DIO on the audio, frame_period = hop/sr*1000, then [:-1]
+  hop_size: 128                  # samples @16 kHz = 8 ms (architecture-fixed)
+  rapt_hop_s: 0.010
+  rapt_offset_s: 0.02            # fitted on TRAIN files only by scripts/verify_ptdb.py (results/MF-PAM-PTDB-001/rapt_alignment.json)
+model:
+  name: MF-PAM                   # model.py Estimation_stage, unmodified
+  n_bins: 360
+  bins_per_octave: 48
+  fmin: 32.7
+training:
+  batch_size: 64
+  learning_rate: 3.0e-4
+  adam_b1: 0.9
+  adam_b2: 0.999
+  optimizer: Adam
+  scheduler: {name: ExponentialLR, gamma: 0.999, step: per_epoch}
+  epochs: 3100                   # official default; best checkpoint selected on validation (no early stop)
+  gradient_clip: null
+  amp: false
+  chunk_length_s: 4.5
+  chunk_stride_s: 1.0
+  shuffle: true                  # deviation D3 (official: no shuffle)
+  num_workers: 16
+  pad: true
+augmentation:
+  shift: 8000                    # official augment.Shift(8000, same=True)
+  noisy_input: false             # Q2: clean-only training
+  reverb: false
+selection:
+  metric: val_RPA_50c            # validation RPA (mir_eval, 50 cents, reference-voiced frames), tie -> lower val BCE
+  data: validation
+evaluation:
+  voicing_threshold: 0.5         # Q9: on sigmoid max-probability
+  pitch_tolerance_cents: 50
+  metrics: [RPA, RCA, VRR, VFA, OA]
+  references: [dio, rapt, rapt_naive]   # Q8: report all
+  test_conditions: [clean, snr20, snr10, snr05, snr00]
+paths:
+  results: results/MF-PAM-PTDB-001
+  checkpoints: checkpoints/MF-PAM-PTDB-001
+  logs: logs
