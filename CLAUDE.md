@@ -21,6 +21,9 @@ approved specifications. Read the relevant spec before modifying any code.
 9. Unknown parameters are marked UNKNOWN, never guessed.
 10. The experiment must be reproducible from its configuration and recorded metadata.
 
+Exception recorded in specs/03 (D16, user-requested): periodic test-set *monitoring* every 20 epochs is allowed; it must never feed
+selection, stopping or tuning.
+
 ## Workflow
 RECONNAISSANCE -> SPECIFICATION -> SPEC REVIEW -> PLAN -> IMPLEMENTATION -> VERIFICATION
 -> SMOKE TEST -> TRAINING -> EVALUATION -> REPRODUCIBILITY REPORT

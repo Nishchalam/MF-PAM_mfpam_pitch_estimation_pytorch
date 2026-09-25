@@ -97,3 +97,15 @@ D12: DIO labels for validation/test are computed once on the full 16 kHz utteran
 D13: `torch.backends.cudnn.benchmark=True` kept → not bit-exact reproducible; seeds (42) are fixed for torch/numpy/python/DataLoader/worker RNGs.
 D14: samples with non-finite gradient norm would skip the optimiser step (counted in the log; none occurred in trials).
 D15: entry point is `scripts/train_ptdb.py` (official `train.py` left untouched).
+
+---
+## Revision 2 (2026-09-25, user request; training restarted from scratch at epoch 0)
+Run 1 (stopped at epoch 107, archived in logs/archive/) is superseded: it lacked the requested columns.
+### Metric protocols (all 50 cents, voicing threshold 0.5 on confidence)
+- **paper_\***: the paper/official-code protocol with the tolerance bug removed: per-file mean, RPA/RCA on reference-voiced frames with pitch decoded for every frame; VRR/VFA/OA from voicing = confidence > 0.5.
+- **rmvpe_\***: the RMVPE/RRCGD `optimised_6_acs` evaluation: predicted-unvoiced frames set to 0 Hz before scoring (voicing misses count as pitch errors), per-file mean.
+- Each is reported against DIO and RAPT (RAPT with the fitted 20 ms offset; `rapt_naive` only in the final evaluation).
+- `official_style` (buggy ~170-cent tolerance) is no longer logged per epoch; it remains in the final evaluation JSON for documentation.
+- Checkpoint selection unchanged: best `val_RPA_50c` (pooled, strict, DIO reference, validation speakers).
+### D16 — test-set monitoring during training (user-requested deviation from acceptance criterion T-3)
+Every 20 epochs the best-by-validation checkpoint and the current (last) checkpoint are evaluated on the TEST speakers (clean audio), written to `test_monitor.csv` + `monitor/*.json`, and committed/pushed automatically (also a 10-minute timer commit of the logs). These numbers are **monitoring only**: they are not used for checkpoint selection, early stopping or any hyperparameter choice; training config is frozen. The final reported test result remains a single evaluation of the best-validation checkpoint after training. Because test curves are visible during training, the final test number should be described as "test-monitored, validation-selected".

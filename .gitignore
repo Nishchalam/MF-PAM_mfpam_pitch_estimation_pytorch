@@ -1,8 +1,15 @@
 __pycache__/
 *.pyc
-results/
 checkpoints/
 logs/
 *.pt
 *.pth
 .ipynb_checkpoints/
+results/*
+!results/MF-PAM-PTDB-001/
+results/MF-PAM-PTDB-001/*
+!results/MF-PAM-PTDB-001/training_log.csv
+!results/MF-PAM-PTDB-001/validation_metrics.csv
+!results/MF-PAM-PTDB-001/test_monitor.csv
+!results/MF-PAM-PTDB-001/monitor/
+.auto_commit.lock

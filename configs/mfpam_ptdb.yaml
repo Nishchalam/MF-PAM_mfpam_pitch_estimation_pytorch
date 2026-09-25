@@ -54,6 +54,8 @@ evaluation:
   metrics: [RPA, RCA, VRR, VFA, OA]
   references: [dio, rapt, rapt_naive]   # Q8: report all
   test_conditions: [clean, snr20, snr10, snr05, snr00]
+monitoring:                      # deviation D16 (user request): test metrics of best+last checkpoint every N epochs, MONITORING ONLY
+  test_every_epochs: 20
 paths:
   results: results/MF-PAM-PTDB-001
   checkpoints: checkpoints/MF-PAM-PTDB-001

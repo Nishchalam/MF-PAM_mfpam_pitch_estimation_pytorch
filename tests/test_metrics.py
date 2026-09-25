@@ -2,7 +2,7 @@
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 import numpy as np
-from src.metrics import melody, official_style
+from src.metrics import melody, official_style, rmvpe_style
 
 def test_all():
     ref = np.array([200.] * 50 + [0.] * 50)
@@ -19,5 +19,8 @@ def test_all():
     # documented quirk: official-style tolerance is ~170 cents, not 50
     assert official_style(np.array([200.] * 10), np.array([200 * 2 ** (100 / 1200)] * 10))['RPA'] == 1.0
     assert melody(np.array([200.] * 10), np.array([200 * 2 ** (100 / 1200)] * 10), np.full(10, .9))['RPA'] == 0.0
+    # RMVPE-style: a voiced frame predicted unvoiced counts as a pitch error (strict RPA does not)
+    r = np.array([200.] * 4); e = np.array([200.] * 4); c = np.array([.9, .9, .1, .1])
+    assert melody(r, e, c)['RPA'] == 1.0 and abs(rmvpe_style(r, e, c)['RPA'] - 0.5) < 1e-9
 if __name__ == '__main__':
     test_all(); print('metrics tests passed')

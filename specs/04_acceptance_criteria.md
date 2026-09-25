@@ -20,7 +20,7 @@ Each criterion has an ID (referenced by the plan) and a check method.
 ## Training
 - [ ] T-1 Train loader only yields train speakers (assert on filenames per batch/epoch)
 - [ ] T-2 Validation loader only yields validation speakers
-- [ ] T-3 Test files never opened before final evaluation (path-access log / code review)
+- [ ] T-3 (revised, D16) Test data is used during training ONLY for periodic monitoring (`test_monitor.csv`); never for checkpoint selection, stopping or tuning (code review: selection reads validation metrics only)
 - [ ] T-4 Best checkpoint selected on validation only; selection metric fixed before training
 - [ ] T-5 Per-epoch log: epoch, train_loss, val_loss, lr, elapsed_time, RPA, RCA, VRR, VFA, OA
 

@@ -8,12 +8,17 @@ from torch.utils.data import DataLoader
 from src.ptdb_common import load_config, list_split, speakers_of, assert_disjoint, REPO_ROOT
 from src.ptdb_dataset import TrainChunks, EvalSet
 from src.evaluation import infer
-from src.metrics import summarise
+from src.metrics import lean_summary
+from scripts.auto_commit import commit_and_push
 from src.manifest import write_manifest
 from model import Estimation_stage       # official, unmodified
 
-LOG_FIELDS = ['epoch', 'train_loss', 'val_loss', 'learning_rate', 'elapsed_time_s', 'val_RPA_50c', 'val_RCA_50c', 'val_VRR', 'val_VFA',
-              'val_OA', 'val_RPA_official_style', 'val_RCA_official_style', 'val_RPA_rapt_50c', 'val_OA_rapt', 'grad_nonfinite', 'steps', 'best']
+_M = ['RPA', 'RCA', 'VRR', 'VFA', 'OA']
+def _cols(prefix):
+    return [f'{prefix}_{proto}_{ref}_{k}' for ref in ('dio', 'rapt') for proto in ('paper', 'rmvpe') for k in _M]
+LOG_FIELDS = (['epoch', 'train_loss', 'val_loss', 'learning_rate', 'elapsed_time_s', 'val_RPA_50c'] + _cols('val')
+              + ['grad_nonfinite', 'steps', 'best'])
+MON_FIELDS = ['epoch', 'which', 'ckpt_epoch', 'test_RPA_50c_pooled_dio'] + _cols('test')
 
 
 def seed_all(seed):
@@ -25,14 +30,31 @@ def worker_init(_):
     np.random.seed(s); random.seed(s)
 
 
+def flat(prefix, ref, m):
+    return {f'{prefix}_{proto}_{ref}_{k}': m[f'{proto}_{k}'] for proto in ('paper', 'rmvpe') for k in _M}
+
+
 def validate(model, val_set, device, thr):
     utts = infer(model, val_set, device, num_workers=4, with_loss=True)
-    d, r = summarise(utts, 'dio', thr), summarise(utts, 'rapt', thr)
-    return {'val_loss': float(np.mean([u['bce'] for u in utts])),
-            'val_RPA_50c': d['pooled_50c']['RPA'], 'val_RCA_50c': d['pooled_50c']['RCA'], 'val_VRR': d['pooled_50c']['VRR'],
-            'val_VFA': d['pooled_50c']['VFA'], 'val_OA': d['pooled_50c']['OA'],
-            'val_RPA_official_style': d['perfile_official_style']['RPA'], 'val_RCA_official_style': d['perfile_official_style']['RCA'],
-            'val_RPA_rapt_50c': r['pooled_50c']['RPA'], 'val_OA_rapt': r['pooled_50c']['OA']}
+    d, r = lean_summary(utts, 'dio', thr, pooled=True), lean_summary(utts, 'rapt', thr)
+    return {'val_loss': float(np.mean([u['bce'] for u in utts])), 'val_RPA_50c': d['pooled_RPA_50c'], **flat('val', 'dio', d), **flat('val', 'rapt', r)}
+
+
+def monitor_test(model, test_set, device, thr, epoch, which, ckpt_epoch, res_dir):
+    """MONITORING ONLY (deviation D16, requested by the user): test metrics of the best / last checkpoint every N epochs.
+    Never used for selection, stopping or tuning."""
+    utts = infer(model, test_set, device, num_workers=4)
+    d, r = lean_summary(utts, 'dio', thr, pooled=True), lean_summary(utts, 'rapt', thr)
+    row = {'epoch': epoch, 'which': which, 'ckpt_epoch': ckpt_epoch, 'test_RPA_50c_pooled_dio': d['pooled_RPA_50c'], **flat('test', 'dio', d), **flat('test', 'rapt', r)}
+    path = os.path.join(res_dir, 'test_monitor.csv'); new = not os.path.exists(path)
+    with open(path, 'a', newline='') as f:
+        w = csv.DictWriter(f, MON_FIELDS)
+        if new: w.writeheader()
+        w.writerow(row)
+    os.makedirs(os.path.join(res_dir, 'monitor'), exist_ok=True)
+    json.dump({'epoch': epoch, 'which': which, 'checkpoint_epoch': ckpt_epoch, 'voicing_threshold': thr, 'pitch_tolerance_cents': 50,
+               'reference_dio': d, 'reference_rapt': r}, open(os.path.join(res_dir, 'monitor', f'test_ep{epoch:04d}_{which}.json'), 'w'), indent=1)
+    return row
 
 
 def main(cfg_path, max_epochs=None, dataset_summary=None):
@@ -57,6 +79,10 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
     sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=T['scheduler']['gamma'])
     train_set, val_set = TrainChunks(cfg, tr), EvalSet(cfg, va)
     crit = nn.BCELoss()
+    mon_every = cfg.get('monitoring', {}).get('test_every_epochs', 0)
+    test_set = EvalSet(cfg, list_split(cfg, 'test')) if mon_every else None
+    if mon_every: best_model = Estimation_stage().to(device)
+    thr = cfg['evaluation']['voicing_threshold']
 
     epoch0, steps, best = 0, 0, {'val_RPA_50c': -1.0, 'val_loss': 1e9, 'epoch': -1}
     last = os.path.join(ck_dir, 'last.pt')
@@ -104,6 +130,15 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
         if better: torch.save(state, os.path.join(ck_dir, 'best.pt'))
         torch.save(state, last)
         print(json.dumps({k: (round(v, 5) if isinstance(v, float) else v) for k, v in row.items()}), flush=True)
+        if mon_every and epoch % mon_every == 0:
+            t1 = time.time()
+            rl = monitor_test(model, test_set, device, thr, epoch, 'last', epoch, res_dir)
+            best_model.load_state_dict(torch.load(os.path.join(ck_dir, 'best.pt'), map_location=device, weights_only=False)['model'])
+            rb = monitor_test(best_model, test_set, device, thr, epoch, 'best', best['epoch'], res_dir)
+            msg = (f"auto: test inference at epoch {epoch} (monitoring only) | best@{best['epoch']} DIO paper RPA {100*rb['test_paper_dio_RPA']:.2f} "
+                   f"RMVPE-RAPT RPA {100*rb['test_rmvpe_rapt_RPA']:.2f} | last DIO paper RPA {100*rl['test_paper_dio_RPA']:.2f} "
+                   f"RMVPE-RAPT RPA {100*rl['test_rmvpe_rapt_RPA']:.2f} | val RPA50 {100*m['val_RPA_50c']:.2f}")
+            print(msg, f'[{time.time()-t1:.0f}s]', commit_and_push(msg), flush=True)
     with open(os.path.join(res_dir, 'validation_metrics.csv'), 'w', newline='') as f:   # validation columns of the log
         src = list(csv.DictReader(open(log_path)))
         ww = csv.DictWriter(f, ['epoch'] + [k for k in LOG_FIELDS if k.startswith('val_')] + ['best']); ww.writeheader()

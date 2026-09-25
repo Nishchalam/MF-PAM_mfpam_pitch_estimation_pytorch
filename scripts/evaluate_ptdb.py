@@ -30,6 +30,9 @@ if __name__ == '__main__':
         d = res[c]['dio']['pooled_50c']; r = res[c]['rapt']['pooled_50c']
         print(f'{c:6s} DIO  RPA {100*d["RPA"]:.2f} RCA {100*d["RCA"]:.2f} VRR {100*d["VRR"]:.2f} VFA {100*d["VFA"]:.2f} OA {100*d["OA"]:.2f} | '
               f'RAPT RPA {100*r["RPA"]:.2f} RCA {100*r["RCA"]:.2f} VRR {100*r["VRR"]:.2f} VFA {100*r["VFA"]:.2f} OA {100*r["OA"]:.2f}', flush=True)
+        for k in ('dio', 'rapt'):
+            m = res[c][k]['perfile_rmvpe_style']
+            print(f'       RMVPE-style ({k.upper()}, per-file mean): ' + ' '.join(f'{n} {100*m[n]:.2f}' for n in ('RPA', 'RCA', 'OA', 'VRR', 'VFA')), flush=True)
         pdir = os.path.join(out, 'predictions' if c == 'clean' else f'predictions_{c}'); os.makedirs(pdir, exist_ok=True)
         for u in utts:
             n = len(u['est_hz'])
