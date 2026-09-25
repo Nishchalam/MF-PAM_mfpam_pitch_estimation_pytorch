@@ -13,3 +13,12 @@ results/MF-PAM-PTDB-001/*
 !results/MF-PAM-PTDB-001/test_monitor.csv
 !results/MF-PAM-PTDB-001/monitor/
 .auto_commit.lock
+!results/MF-PAM-PTDB-002/
+results/MF-PAM-PTDB-002/*
+!results/MF-PAM-PTDB-002/training_log.csv
+!results/MF-PAM-PTDB-002/test_metrics.json
+!results/MF-PAM-PTDB-002/config.yaml
+!results/MF-PAM-PTDB-002/git_commit.txt
+!results/MF-PAM-PTDB-002/environment.txt
+!results/MF-PAM-PTDB-002/dataset_summary.json
+!results/MF-PAM-PTDB-002/predictions/

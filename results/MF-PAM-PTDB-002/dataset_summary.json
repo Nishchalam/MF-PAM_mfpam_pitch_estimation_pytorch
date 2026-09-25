@@ -1,0 +1,61 @@
+{
+  "train": {
+    "speakers": [
+      "F01",
+      "F02",
+      "F03",
+      "F04",
+      "F05",
+      "F06",
+      "M01",
+      "M02",
+      "M03",
+      "M04",
+      "M05",
+      "M06"
+    ],
+    "n_utts": 2832,
+    "label_frames": 2153374,
+    "voiced_frac": 0.2450846903510491,
+    "audio_frames_minus_label_frames": [
+      2,
+      2.9721045197740112,
+      3
+    ],
+    "files_shorter_than_256_frames": 0
+  },
+  "validation": {
+    "speakers": [
+      "F07",
+      "F08",
+      "M07",
+      "M08"
+    ],
+    "n_utts": 942,
+    "label_frames": 625035,
+    "voiced_frac": 0.21787899877606853,
+    "audio_frames_minus_label_frames": [
+      2,
+      2.962845010615711,
+      3
+    ],
+    "files_shorter_than_256_frames": 0
+  },
+  "test": {
+    "speakers": [
+      "F09",
+      "F10",
+      "M09",
+      "M10"
+    ],
+    "n_utts": 944,
+    "label_frames": 664795,
+    "voiced_frac": 0.21636594739731796,
+    "audio_frames_minus_label_frames": [
+      2,
+      2.9703389830508473,
+      3
+    ],
+    "files_shorter_than_256_frames": 0
+  }
+}

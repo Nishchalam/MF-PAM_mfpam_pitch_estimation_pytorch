@@ -1,0 +1,45 @@
+# MF-PAM-PTDB-002 — MF-PAM inside the RMVPE-RRCGD PTDB protocol (specs/05_experiment2.md)
+experiment: {name: MF-PAM-PTDB-002, seed: 42, deterministic: true}
+dataset:
+  root: /home/batch_2024/ee24s004/KT/RMVPE-RRCGD-spot-computation/dataset/PTDB_data_10ms_hop
+  train_dir: train
+  validation_dir: valid
+  test_dir: test
+  cache_root: /home/batch_2024/ee24s004/KT/MF-PAM_data
+  native_sample_rate: 48000
+  sample_rate: 12800             # 128-sample MF-PAM hop = 10 ms
+  resampler: {name: soxr, quality: VHQ}
+  noisy_snr_db: [20, 10, 5, 0]
+  expected_speakers:
+    train: [F01, F02, F03, F04, F05, F06, M01, M02, M03, M04, M05, M06]
+    validation: [F07, F08, M07, M08]
+    test: [F09, F10, M09, M10]
+labels:                          # RMVPE-RRCGD: <utt>.npy (RAPT, k*10 ms, Hz); one-hot 360 classes, 20-cent bins
+  hop_ms: 10
+  hop_size: 128
+  n_class: 360
+  cent_offset: 1997.3794084376191
+  cent_step: 20.0
+  fref_hz: 10.0
+model: {name: MF-PAM}            # model.py Estimation_stage, unmodified (sigmoid output)
+training:
+  batch_size: 8
+  learning_rate: 1.0e-3
+  optimizer: Adam
+  scheduler: {name: StepLR, step_size_epochs: 5, gamma: 0.98, step: per_iteration}
+  epochs: 30
+  patience_epochs: 4
+  gradient_clip: 3
+  amp: false                     # deviation D-E2-4
+  seq_len_s: 2.55                # -> 256 frames (seq_len*8000 // 80 + 1, as RMVPE-RRCGD)
+  n_steps: 256
+  shuffle: true
+  num_workers: 4
+  loss: {name: BCE, alpha: 1.0, gamma: 0.0}
+selection: {metric: val_RPA_rmvpe, rule: ">=", data: validation}
+evaluation:
+  pitch_th: 0.5
+  tolerance_cents: 50
+  metrics: [RPA, RCA, OA, VR, VFA]
+  test_conditions: [clean, snr20, snr10, snr05, snr00]
+paths: {results: results/MF-PAM-PTDB-002, checkpoints: checkpoints/MF-PAM-PTDB-002}

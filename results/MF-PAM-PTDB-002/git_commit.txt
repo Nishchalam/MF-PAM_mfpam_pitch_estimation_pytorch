@@ -1,0 +1,20 @@
+commit: bc2568e5a33238e9b0c63d701738c1b69a796a52
+branch: ptdb-reproduction
+upstream_base: 9303df5 (official MF-PAM)
+dirty_files:
+M .gitignore
+ M results/MF-PAM-PTDB-001/training_log.csv
+?? configs/mfpam_ptdb_exp2.yaml
+?? plans/MF-PAM-PTDB-002-plan.md
+?? results/MF-PAM-PTDB-002/
+?? scripts/evaluate_exp2.py
+?? scripts/prepare_12k8.py
+?? scripts/train_exp2.py
+?? scripts/verify_exp2.py
+?? specs/05_experiment2.md
+?? src/exp2_data.py
+?? src/rmvpe_protocol.py
+?? src/train_exp2.py
+?? tests/test_exp2_parity.py
+diff_model_files_vs_upstream:
+(none)
