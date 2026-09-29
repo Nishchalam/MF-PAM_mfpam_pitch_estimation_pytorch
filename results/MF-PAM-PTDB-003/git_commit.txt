@@ -1,0 +1,11 @@
+commit: 62e6478d0a12f8ec70d2d80d659083289e6234d7
+branch: ptdb-reproduction
+upstream_base: 9303df5 (official MF-PAM)
+dirty_files:
+M src/ptdb_dataset.py
+ M src/train_ptdb.py
+?? configs/mfpam_ptdb_003_noisy.yaml
+?? plans/MF-PAM-PTDB-003-plan.md
+?? specs/06_experiment3.md
+diff_model_files_vs_upstream:
+(none)

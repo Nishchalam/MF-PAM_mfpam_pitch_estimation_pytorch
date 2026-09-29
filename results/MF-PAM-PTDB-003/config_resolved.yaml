@@ -1,0 +1,103 @@
+experiment:
+  name: MF-PAM-PTDB-003
+  seed: 42
+dataset:
+  root: /home/batch_2024/ee24s004/KT/RMVPE-RRCGD-spot-computation/dataset/PTDB_data_10ms_hop
+  train_dir: train
+  validation_dir: valid
+  test_dir: test
+  cache_root: /home/batch_2024/ee24s004/KT/MF-PAM_data
+  native_sample_rate: 48000
+  sample_rate: 16000
+  resampler:
+    name: soxr
+    quality: VHQ
+  noisy_snr_db:
+  - 20
+  - 10
+  - 5
+  - 0
+  expected_speakers:
+    train:
+    - F01
+    - F02
+    - F03
+    - F04
+    - F05
+    - F06
+    - M01
+    - M02
+    - M03
+    - M04
+    - M05
+    - M06
+    validation:
+    - F07
+    - F08
+    - M07
+    - M08
+    test:
+    - F09
+    - F10
+    - M09
+    - M10
+labels:
+  reference: dio
+  hop_size: 128
+  rapt_hop_s: 0.01
+  rapt_offset_s: 0.02
+model:
+  name: MF-PAM
+  n_bins: 360
+  bins_per_octave: 48
+  fmin: 32.7
+training:
+  batch_size: 64
+  learning_rate: 0.0003
+  adam_b1: 0.9
+  adam_b2: 0.999
+  optimizer: Adam
+  scheduler:
+    name: ExponentialLR
+    gamma: 0.999
+    step: per_epoch
+  epochs: 3100
+  gradient_clip: null
+  amp: false
+  chunk_length_s: 4.5
+  chunk_stride_s: 1.0
+  shuffle: true
+  num_workers: 16
+  pad: true
+augmentation:
+  shift: 8000
+  noisy_input: true
+  reverb: false
+selection:
+  metric: val_RPA_50c
+  data: validation
+evaluation:
+  voicing_threshold: 0.5
+  pitch_tolerance_cents: 50
+  metrics:
+  - RPA
+  - RCA
+  - VRR
+  - VFA
+  - OA
+  references:
+  - dio
+  - rapt
+  - rapt_naive
+  test_conditions:
+  - clean
+  - snr20
+  - snr10
+  - snr05
+  - snr00
+monitoring:
+  test_every_epochs: 0
+paths:
+  results: results/MF-PAM-PTDB-003
+  checkpoints: checkpoints/MF-PAM-PTDB-003
+  logs: logs

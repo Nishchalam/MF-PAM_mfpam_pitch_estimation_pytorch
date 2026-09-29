@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from src.ptdb_common import load_config, list_split, speakers_of, assert_disjoint, REPO_ROOT
-from src.ptdb_dataset import TrainChunks, EvalSet
+from src.ptdb_dataset import TrainChunks, TrainChunksNoisy, EvalSet
 from src.evaluation import infer
 from src.metrics import lean_summary
 from scripts.auto_commit import commit_and_push
@@ -17,7 +17,7 @@ _M = ['RPA', 'RCA', 'VRR', 'VFA', 'OA']
 def _cols(prefix):
     return [f'{prefix}_{proto}_{ref}_{k}' for ref in ('dio', 'rapt') for proto in ('paper', 'rmvpe') for k in _M]
 LOG_FIELDS = (['epoch', 'train_loss', 'val_loss', 'learning_rate', 'elapsed_time_s', 'val_RPA_50c'] + _cols('val')
-              + ['grad_nonfinite', 'steps', 'best'])
+              + ['grad_nonfinite', 'steps', 'best', 'train_noisy_frac'])   # train_noisy_frac: '' unless specs/06 (D20 check, E3-1)
 MON_FIELDS = ['epoch', 'which', 'ckpt_epoch', 'test_RPA_50c_pooled_dio'] + _cols('test')
 
 
@@ -77,8 +77,11 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
     assert sum(p.numel() for p in model.parameters()) == 362479
     opt = torch.optim.Adam(model.parameters(), lr=T['learning_rate'], betas=(T['adam_b1'], T['adam_b2']))
     sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=T['scheduler']['gamma'])
-    train_set, val_set = TrainChunks(cfg, tr), EvalSet(cfg, va)
+    noisy_mix = cfg['augmentation']['noisy_input']       # specs/06 (MF-PAM-PTDB-003): 90/10 noisy/clean train input
+    train_set = TrainChunksNoisy(cfg, tr) if noisy_mix else TrainChunks(cfg, tr)
+    val_set = EvalSet(cfg, va)
     crit = nn.BCELoss()
+    noisy_seen, clean_seen = 0, 0
     mon_every = cfg.get('monitoring', {}).get('test_every_epochs', 0)
     test_set = EvalSet(cfg, list_split(cfg, 'test')) if mon_every else None
     if mon_every: best_model = Estimation_stage().to(device)
@@ -104,7 +107,12 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
         dl = DataLoader(train_set, batch_size=T['batch_size'], shuffle=T['shuffle'], generator=g, num_workers=T['num_workers'],
                         pin_memory=True, drop_last=True, worker_init_fn=worker_init)
         loss_sum, n, bad = 0.0, 0, 0
-        for f0, quant, wav, spk in dl:
+        for batch in dl:
+            if noisy_mix:
+                f0, quant, wav, spk, used_noisy = batch
+                noisy_seen += int(used_noisy.sum()); clean_seen += int((1 - used_noisy).sum())
+            else:
+                f0, quant, wav, spk = batch
             assert set(spk) <= train_spk, f'non-train speaker in training batch: {set(spk) - train_spk}'
             wav, tgt = wav.to(device, non_blocking=True), quant.to(device, non_blocking=True).float()
             assert torch.isfinite(wav).all() and torch.isfinite(tgt).all(), 'non-finite input/target'
@@ -123,9 +131,11 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
         better = (m['val_RPA_50c'] > best['val_RPA_50c']) or (m['val_RPA_50c'] == best['val_RPA_50c'] and m['val_loss'] < best['val_loss'])
         if better:
             best = {'val_RPA_50c': float(m['val_RPA_50c']), 'val_loss': float(m['val_loss']), 'epoch': epoch}
+        noisy_frac = noisy_seen / max(noisy_seen + clean_seen, 1) if noisy_mix else ''
         row = {'epoch': epoch, 'train_loss': loss_sum / max(n, 1), 'learning_rate': lr, 'elapsed_time_s': round(time.time() - t0, 1),
-               'grad_nonfinite': bad, 'steps': steps, 'best': int(better), **m}
+               'grad_nonfinite': bad, 'steps': steps, 'best': int(better), 'train_noisy_frac': noisy_frac, **m}
         w.writerow({k: row[k] for k in LOG_FIELDS}); logf.flush()
+        noisy_seen = clean_seen = 0
         state = {'model': model.state_dict(), 'optim': opt.state_dict(), 'sched': sched.state_dict(), 'epoch': epoch, 'steps': steps, 'best': best, 'cfg': cfg}
         if better: torch.save(state, os.path.join(ck_dir, 'best.pt'))
         torch.save(state, last)

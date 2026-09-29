@@ -91,7 +91,23 @@ rca = mir_eval.melody.raw_chroma_accuracy(ref_v, ref_c, est_v, est_c)
 ```
 (the RMVPE-RRCGD code in `optimised_6_acs/evaluate.py` uses option B.)
 
-## 6. Interpretation and caveats
+## 6. Same check on MF-PAM-PTDB-003 (clean+noisy training, specs/06)
+Repeating section 4 for the clean+noisy-trained model (best-validation checkpoint, epoch 892), clean test set,
+DIO reference, per-file mean (the authors' own aggregation):
+
+| Model | Buggy (official code) RPA | Buggy RCA | **Fixed 50-cent RPA** | Fixed 50-cent RCA |
+|---|---|---|---|---|
+| Paper, MF-PAM, PTDB (Table 1) | 97.12 | 97.13 | (not reported) | (not reported) |
+| MF-PAM-PTDB-001 (clean-only training) | 97.14 | 97.15 | **94.38** | 94.72 |
+| MF-PAM-PTDB-003 (clean+noisy training) | 96.79 | 96.80 | **93.49** | 93.81 |
+
+Both of our runs land within about 0.3-0.9 points of the paper's 97.12/97.13 **only under the buggy metric**; under
+a true 50-cent tolerance both are close to 3-4 points lower (93.5-94.4). Noisy training does not close this gap --
+if anything it is marginally lower on the buggy metric too, so the paper/buggy-metric agreement is not an artifact
+of training-data choice. Full per-condition (clean + SNR 20/10/5/0 dB) buggy-vs-fixed tables for both experiments
+are in `MF-PAM_PTDB_REPRODUCTION.md` (Experiment 1) and `MF-PAM_PTDB_EXP3.md` (Experiment 3).
+
+## 7. Interpretation and caveats
 * The paper's PTDB number is reproduced (97.14 vs 97.12) only with the authors' metric implementation; with the stated 50-cent tolerance the same model gives 94.38. This is strong circumstantial evidence, not proof, that the paper's numbers come from the double-conversion code: I cannot see their runs.
 * Our split, label recipe (DIO), clean-only training, 16 kHz resampling and the manually stopped run (epoch 577) differ from the paper's undisclosed setup; the 0.02-point agreement should be read as "consistent", not as identical experiments.
 * The tolerance bug affects every model evaluated with this code (including any baselines the authors ran through it), so cross-paper comparisons with strict 50-cent numbers (e.g. CREPE, pYIN in other papers) are optimistic for MF-PAM.

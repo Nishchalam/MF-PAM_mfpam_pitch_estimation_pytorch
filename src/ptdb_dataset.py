@@ -1,5 +1,6 @@
 """PTDB adapter for MF-PAM. Reads the EXISTING split directories (never re-splits); official quantiser/augmentation reused."""
 import math
+import random
 import numpy as np
 import soundfile as sf
 import torch
@@ -48,6 +49,60 @@ class TrainChunks(Dataset):
         f0 = torch.from_numpy(dio_labels(x.numpy(), self.hop, self.sr))
         quant = hz_to_onehot(f0).to(torch.uint8)                          # values 0/1, cast on GPU to float
         return f0, quant, x, spk
+
+
+class TrainChunksNoisy(Dataset):
+    """MF-PAM-PTDB-003 (specs/06): same crop/stride/Shift chunking as TrainChunks, but each crop's MODEL INPUT is
+    drawn 90% noisy / 10% clean (official dataset.py recipe, D18/D20 in specs/06 for the deviations); the LABEL is
+    always DIO on the CLEAN crop, exactly as in the official code and in TrainChunks. Noisy variant = one of
+    cfg['dataset']['noisy_snr_db'] dB files, chosen uniformly at random per crop."""
+
+    def __init__(self, cfg, items, noisy_prob=0.9):
+        sr = cfg['dataset']['sample_rate']
+        self.hop = cfg['labels']['hop_size']
+        self.sr = sr
+        self.length = int(cfg['training']['chunk_length_s'] * sr)
+        self.stride = int(cfg['training']['chunk_stride_s'] * sr)
+        self.noisy_prob = noisy_prob
+        self.snrs = cfg['dataset']['noisy_snr_db']
+        self.files, self.index = [], []
+        for it in items:
+            clean_path = cache_wav(cfg, it)
+            noisy_paths = [cache_wav(cfg, it, s) for s in self.snrs]
+            n = sf.info(clean_path).frames
+            k = len(self.files)
+            self.files.append((clean_path, noisy_paths, it['speaker']))
+            if n < self.length:
+                ex = 1 if cfg['training']['pad'] else 0
+            elif cfg['training']['pad']:
+                ex = int(math.ceil((n - self.length) / self.stride) + 1)
+            else:
+                ex = (n - self.length) // self.stride + 1
+            self.index += [(k, self.stride * j) for j in range(ex)]
+        self.shift = augment.Shift(cfg['augmentation']['shift'], True)   # same=True: identical offset for both sources
+
+    def __len__(self):
+        return len(self.index)
+
+    def _read(self, path, off):
+        x, _ = sf.read(path, start=off, frames=self.length, dtype='float32')
+        if len(x) < self.length:
+            x = np.pad(x, (0, self.length - len(x)))
+        return x
+
+    def __getitem__(self, i):
+        k, off = self.index[i]
+        clean_path, noisy_paths, spk = self.files[k]
+        clean = self._read(clean_path, off)
+        used_noisy = random.random() < self.noisy_prob
+        model_in = self._read(random.choice(noisy_paths), off) if used_noisy else clean
+        # sources = [model_input, clean_for_labels] — matches official [fb_noisy, clean] stacking order
+        wav = torch.from_numpy(np.stack([model_in, clean])).view(2, 1, 1, -1)
+        wav = self.shift(wav)[:, 0, 0]                                    # [2, T - shift]
+        model_x, clean_x = wav[0], wav[1]
+        f0 = torch.from_numpy(dio_labels(clean_x.numpy(), self.hop, self.sr))   # labels ALWAYS from the clean crop
+        quant = hz_to_onehot(f0).to(torch.uint8)
+        return f0, quant, model_x, spk, int(used_noisy)   # 5th field (used_noisy) is verification-only, see E3-T4
 
 
 class EvalSet(Dataset):
