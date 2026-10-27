@@ -9,6 +9,7 @@ from src.ptdb_dataset import EvalSet
 from src.evaluation import infer, all_refs
 from model import Estimation_stage
 from scripts.prepare_16k import prepare
+from src.train_ptdb import window_samples
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
@@ -22,10 +23,10 @@ if __name__ == '__main__':
     st = torch.load(ckpt, map_location='cuda:0', weights_only=False); model = Estimation_stage().cuda(); model.load_state_dict(st['model'])
     items = list_split(cfg, a.split); print(f'evaluating {len(items)} utts, split={a.split}, ckpt epoch {st["epoch"]} (best {st["best"]})')
     res = {'meta': {'split': a.split, 'checkpoint': ckpt, 'checkpoint_epoch': st['epoch'], 'best_val': st['best'], 'voicing_threshold': thr,
-                    'pitch_tolerance_cents': 50, 'rapt_offset_s': cfg['labels']['rapt_offset_s'], 'seed': cfg['experiment']['seed']}}
+                    'pitch_tolerance_cents': 50, 'window_samples': window_samples(cfg), 'rapt_offset_s': cfg['labels']['rapt_offset_s'], 'seed': cfg['experiment']['seed']}}
     for c in conds:
         snr = None if c == 'clean' else int(c[3:])
-        utts = infer(model, EvalSet(cfg, items, snr), torch.device('cuda:0'), num_workers=4)
+        utts = infer(model, EvalSet(cfg, items, snr), torch.device('cuda:0'), num_workers=4, window=window_samples(cfg))
         res[c] = all_refs(utts, thr)
         d = res[c]['dio']['pooled_50c']; r = res[c]['rapt']['pooled_50c']
         print(f'{c:6s} DIO  RPA {100*d["RPA"]:.2f} RCA {100*d["RCA"]:.2f} VRR {100*d["VRR"]:.2f} VFA {100*d["VFA"]:.2f} OA {100*d["OA"]:.2f} | '

@@ -105,6 +105,54 @@ class TrainChunksNoisy(Dataset):
         return f0, quant, model_x, spk, int(used_noisy)   # 5th field (used_noisy) is verification-only, see E3-T4
 
 
+class TrainWindowsNoisy(Dataset):
+    """MF-PAM-PTDB-004 (specs/07): model input = ONE 128 ms window (cfg training.window_ms). Same 90/10 noisy/clean input
+    mix as TrainChunksNoisy (003). Crop start points every `chunk_stride_s`; the Shift augmentation becomes a random
+    start offset of 0..shift samples in whole hops (D23). Labels = slice of the cached DIO of the CLEAN full utterance
+    (D22), i.e. the same label definition as the validation/test references, so window edges carry no DIO edge artefacts."""
+
+    def __init__(self, cfg, items, noisy_prob=0.9):
+        sr = cfg['dataset']['sample_rate']
+        self.hop = cfg['labels']['hop_size']
+        self.win = int(round(cfg['training']['window_ms'] * sr / 1000))
+        assert self.win % self.hop == 0
+        self.nfr = self.win // self.hop
+        self.shift = cfg['augmentation']['shift']
+        self.read = self.win + self.shift
+        self.stride = int(cfg['training']['chunk_stride_s'] * sr)
+        self.noisy_prob, self.snrs = noisy_prob, cfg['dataset']['noisy_snr_db']
+        self.files, self.index = [], []
+        for it in items:
+            clean_path = cache_wav(cfg, it)
+            n = sf.info(clean_path).frames
+            k = len(self.files)
+            self.files.append((clean_path, [cache_wav(cfg, it, s) for s in self.snrs], it['speaker'], n,
+                               np.load(cache_dio(cfg, it)).astype(np.float32)))
+            ex = 1 if n < self.read else int(math.ceil((n - self.read) / self.stride) + 1)    # pad=True, as official
+            self.index += [(k, self.stride * j) for j in range(ex)]
+
+    def __len__(self):
+        return len(self.index)
+
+    def _read(self, path, start):
+        x, _ = sf.read(path, start=start, frames=self.win, dtype='float32')
+        return np.pad(x, (0, self.win - len(x))) if len(x) < self.win else x
+
+    def __getitem__(self, i):
+        k, off = self.index[i]
+        clean_path, noisy_paths, spk, n, dio = self.files[k]
+        start = off + self.hop * random.randint(0, self.shift // self.hop)        # same start for noisy and clean (shared Shift)
+        start = max(0, min(start, (n - self.win) // self.hop * self.hop))        # keep the window inside the utterance
+        j = start // self.hop
+        f0 = np.zeros(self.nfr, dtype=np.float32)
+        seg = dio[j:j + self.nfr]
+        f0[:len(seg)] = seg
+        used_noisy = random.random() < self.noisy_prob
+        x = self._read(random.choice(noisy_paths) if used_noisy else clean_path, start)
+        f0 = torch.from_numpy(f0)
+        return f0, hz_to_onehot(f0).to(torch.uint8), torch.from_numpy(x), spk, int(used_noisy)
+
+
 class EvalSet(Dataset):
     """Full-length utterances (batch 1). Input = clean or noisy 16 kHz audio; references always come from the CLEAN file:
     DIO (cached), RAPT (.f0) with the fitted offset, and RAPT with naive k*10 ms timing."""

@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-27):** computed on the old PTDB copy (noisy files made at 48 kHz, then resampled). The baseline is now `MF-PAM_PTDB_EXP4.md` (MF-PAM-PTDB-004, new 8 kHz data). Kept for history.
+
 # MF-PAM-PTDB-002 — MF-PAM under the RMVPE-RRCGD PTDB protocol
 
 Spec: `specs/05_experiment2.md` (approved 2026-09-25). Config: `configs/mfpam_ptdb_exp2.yaml`. Seed 42.

@@ -1,0 +1,19 @@
+commit: 088b37811d899ac6916397373566d9ae897d9500
+branch: ptdb-reproduction
+upstream_base: 9303df5 (official MF-PAM)
+dirty_files:
+M scripts/evaluate_ptdb.py
+ M scripts/prepare_16k.py
+ M src/evaluation.py
+ M src/ptdb_dataset.py
+ M src/train_ptdb.py
+?? configs/mfpam_ptdb_004_8k_noisy.yaml
+?? configs/mfpam_ptdb_005_8k_128ms.yaml
+?? plans/MF-PAM-PTDB-004-plan.md
+?? plans/MF-PAM-PTDB-005-plan.md
+?? scripts/run_004_when_gpu_free.sh
+?? specs/07_experiment4.md
+?? specs/08_experiment5.md
+?? tests/test_window005.py
+diff_model_files_vs_upstream:
+(none)

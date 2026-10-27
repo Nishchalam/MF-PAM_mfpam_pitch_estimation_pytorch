@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from src.ptdb_common import load_config, list_split, speakers_of, assert_disjoint, REPO_ROOT
-from src.ptdb_dataset import TrainChunks, TrainChunksNoisy, EvalSet
+from src.ptdb_dataset import TrainChunks, TrainChunksNoisy, TrainWindowsNoisy, EvalSet
 from src.evaluation import infer
 from src.metrics import lean_summary
 from scripts.auto_commit import commit_and_push
@@ -34,16 +34,22 @@ def flat(prefix, ref, m):
     return {f'{prefix}_{proto}_{ref}_{k}': m[f'{proto}_{k}'] for proto in ('paper', 'rmvpe') for k in _M}
 
 
-def validate(model, val_set, device, thr):
-    utts = infer(model, val_set, device, num_workers=4, with_loss=True)
+def window_samples(cfg):
+    """Eval/val input window in samples (specs/07), or None for whole-utterance inference (001/003)."""
+    w = cfg['training'].get('window_ms')
+    return int(round(w * cfg['dataset']['sample_rate'] / 1000)) if w else None
+
+
+def validate(model, val_set, device, thr, window=None):
+    utts = infer(model, val_set, device, num_workers=4, with_loss=True, window=window)
     d, r = lean_summary(utts, 'dio', thr, pooled=True), lean_summary(utts, 'rapt', thr)
     return {'val_loss': float(np.mean([u['bce'] for u in utts])), 'val_RPA_50c': d['pooled_RPA_50c'], **flat('val', 'dio', d), **flat('val', 'rapt', r)}
 
 
-def monitor_test(model, test_set, device, thr, epoch, which, ckpt_epoch, res_dir):
+def monitor_test(model, test_set, device, thr, epoch, which, ckpt_epoch, res_dir, window=None):
     """MONITORING ONLY (deviation D16, requested by the user): test metrics of the best / last checkpoint every N epochs.
     Never used for selection, stopping or tuning."""
-    utts = infer(model, test_set, device, num_workers=4)
+    utts = infer(model, test_set, device, num_workers=4, window=window)
     d, r = lean_summary(utts, 'dio', thr, pooled=True), lean_summary(utts, 'rapt', thr)
     row = {'epoch': epoch, 'which': which, 'ckpt_epoch': ckpt_epoch, 'test_RPA_50c_pooled_dio': d['pooled_RPA_50c'], **flat('test', 'dio', d), **flat('test', 'rapt', r)}
     path = os.path.join(res_dir, 'test_monitor.csv'); new = not os.path.exists(path)
@@ -78,7 +84,12 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
     opt = torch.optim.Adam(model.parameters(), lr=T['learning_rate'], betas=(T['adam_b1'], T['adam_b2']))
     sched = torch.optim.lr_scheduler.ExponentialLR(opt, gamma=T['scheduler']['gamma'])
     noisy_mix = cfg['augmentation']['noisy_input']       # specs/06 (MF-PAM-PTDB-003): 90/10 noisy/clean train input
-    train_set = TrainChunksNoisy(cfg, tr) if noisy_mix else TrainChunks(cfg, tr)
+    win = window_samples(cfg)
+    if win:
+        assert noisy_mix, 'window mode (specs/07) is implemented for the 90/10 noisy/clean recipe only'
+        train_set = TrainWindowsNoisy(cfg, tr)
+    else:
+        train_set = TrainChunksNoisy(cfg, tr) if noisy_mix else TrainChunks(cfg, tr)
     val_set = EvalSet(cfg, va)
     crit = nn.BCELoss()
     noisy_seen, clean_seen = 0, 0
@@ -127,7 +138,7 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
             loss_sum += loss.item(); n += 1; steps += 1
             if steps % 50 == 0: print(f'ep {epoch} step {steps} loss {loss.item():.5f}', flush=True)
         lr = opt.param_groups[0]['lr']; sched.step()
-        m = validate(model, val_set, device, cfg['evaluation']['voicing_threshold'])
+        m = validate(model, val_set, device, cfg['evaluation']['voicing_threshold'], win)
         better = (m['val_RPA_50c'] > best['val_RPA_50c']) or (m['val_RPA_50c'] == best['val_RPA_50c'] and m['val_loss'] < best['val_loss'])
         if better:
             best = {'val_RPA_50c': float(m['val_RPA_50c']), 'val_loss': float(m['val_loss']), 'epoch': epoch}
@@ -142,9 +153,9 @@ def main(cfg_path, max_epochs=None, dataset_summary=None):
         print(json.dumps({k: (round(v, 5) if isinstance(v, float) else v) for k, v in row.items()}), flush=True)
         if mon_every and epoch % mon_every == 0:
             t1 = time.time()
-            rl = monitor_test(model, test_set, device, thr, epoch, 'last', epoch, res_dir)
+            rl = monitor_test(model, test_set, device, thr, epoch, 'last', epoch, res_dir, win)
             best_model.load_state_dict(torch.load(os.path.join(ck_dir, 'best.pt'), map_location=device, weights_only=False)['model'])
-            rb = monitor_test(best_model, test_set, device, thr, epoch, 'best', best['epoch'], res_dir)
+            rb = monitor_test(best_model, test_set, device, thr, epoch, 'best', best['epoch'], res_dir, win)
             msg = (f"auto: test inference at epoch {epoch} (monitoring only) | best@{best['epoch']} DIO paper RPA {100*rb['test_paper_dio_RPA']:.2f} "
                    f"RMVPE-RAPT RPA {100*rb['test_rmvpe_rapt_RPA']:.2f} | last DIO paper RPA {100*rl['test_paper_dio_RPA']:.2f} "
                    f"RMVPE-RAPT RPA {100*rl['test_rmvpe_rapt_RPA']:.2f} | val RPA50 {100*m['val_RPA_50c']:.2f}")

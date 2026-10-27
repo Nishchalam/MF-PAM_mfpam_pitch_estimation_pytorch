@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-27):** computed on the old PTDB copy (noisy files made at 48 kHz, then resampled). The baseline is now `MF-PAM_PTDB_EXP4.md` (MF-PAM-PTDB-004, new 8 kHz data). Kept for history.
+
 # MF-PAM-PTDB-003 — clean+noisy training (matches the authors' 90/10 mix)
 
 Spec: `specs/06_experiment3.md`. Config: `configs/mfpam_ptdb_003_noisy.yaml`. Seed 42. Supersedes Q2 of

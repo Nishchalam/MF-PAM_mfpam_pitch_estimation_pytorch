@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-27):** computed on the old PTDB copy (noisy files made at 48 kHz, then resampled). The baseline is now `MF-PAM_PTDB_EXP4.md` (MF-PAM-PTDB-004, new 8 kHz data). Kept for history.
+
 # MF-PAM on PTDB-TUG — reproduction report (Experiment 1: MF-PAM-PTDB-001)
 Branch `ptdb-reproduction`. Specs: `specs/`. Config: `configs/mfpam_ptdb.yaml`. Experiment 2 (RMVPE-RRCGD protocol) is in `MF-PAM_PTDB_EXP2.md`.
 

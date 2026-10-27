@@ -12,7 +12,7 @@ Reuses MF-PAM-PTDB-001's infrastructure (`src/ptdb_common.py`, `src/metrics.py`,
 | E3-T5 | Launch training in background (GPU 0 free since 001 stopped); auto-commit only at the end (per prior user instruction pattern) unless told otherwise | 06 | - |
 | E3-T6 | After training: evaluate best-validation checkpoint on TEST (clean + noisy SNR), report alongside MF-PAM-PTDB-001 | 06, 04 | - |
 
-## Status (2026-09-29)
+## Status (2026-09-29; superseded by MF-PAM-PTDB-004 on 2026-10-27)
 All tasks done. Trained to epoch 900 (auto-stopped by `scripts/watchdog_stop_on_plateau.py` on a validation-RPA
 plateau: two consecutive 100-epoch blocks each gained <=0.10 pt). Best-validation checkpoint epoch 892
 (val_RPA_50c 94.34%). Final test evaluation run once (clean + SNR 20/10/5/0 dB). Report: `MF-PAM_PTDB_EXP3.md`;

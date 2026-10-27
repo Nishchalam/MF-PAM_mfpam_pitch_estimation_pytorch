@@ -30,7 +30,7 @@ def prepare(cfg, splits, noisy=False, workers=20):
     jobs = []
     for sp in splits:
         for it in list_split(cfg, sp):
-            jobs.append((cfg, it, None, sp != 'train'))          # train DIO is computed on the fly on shifted crops
+            jobs.append((cfg, it, None, sp != 'train' or bool(cfg['training'].get('window_ms'))))   # train DIO: on the fly on shifted crops (001/003); cached in window mode (004, D22)
             if noisy:
                 jobs += [(cfg, it, s, False) for s in cfg['dataset']['noisy_snr_db']]
     with Pool(workers) as p:
