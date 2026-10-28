@@ -46,3 +46,11 @@ results/MF-PAM-PTDB-004/*
 !results/MF-PAM-PTDB-004/environment.txt
 !results/MF-PAM-PTDB-004/rapt_alignment.json
 !results/MF-PAM-PTDB-004/dataset_summary.json
+!results/MF-PAM-PTDB-004b/
+results/MF-PAM-PTDB-004b/*
+!results/MF-PAM-PTDB-004b/training_log.csv
+!results/MF-PAM-PTDB-004b/test_metrics.json
+!results/MF-PAM-PTDB-004b/config.yaml
+!results/MF-PAM-PTDB-004b/config_resolved.yaml
+!results/MF-PAM-PTDB-004b/git_commit.txt
+!results/MF-PAM-PTDB-004b/environment.txt

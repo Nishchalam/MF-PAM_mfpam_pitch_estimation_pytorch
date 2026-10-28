@@ -1,0 +1,8 @@
+commit: 3493eeba97453bdc216880d86b20939fb91e92a9
+branch: ptdb-reproduction
+upstream_base: 9303df5 (official MF-PAM)
+dirty_files:
+?? configs/mfpam_ptdb_004b_8k_noisy_seed43.yaml
+?? scripts/run_004b.sh
+diff_model_files_vs_upstream:
+(none)
